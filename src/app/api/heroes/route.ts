@@ -1,43 +1,30 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { ensureDb } from '@/lib/db-init'
+import { SEED_HEROES, SEED_TEAMS, SEED_TOURNAMENTS } from '@/lib/static-data'
 
 export async function GET() {
-  await ensureDb()
   try {
-    const heroes = await prisma.hero.findMany({
-      include: { heroStats: true },
-    })
-
-    const enriched = heroes.map(h => {
-      const overall = h.heroStats.find(s => s.position === "")
-      const carry = h.heroStats.find(s => s.position === 'carry')
-      const mid = h.heroStats.find(s => s.position === 'mid')
-      const offlane = h.heroStats.find(s => s.position === 'offlane')
-      const support = h.heroStats.find(s => s.position === 'support')
-
-      return {
-        id: h.id,
-        name: h.localizedName,
-        img: h.imageUrl || '',
+    // Try Prisma first for enriched data
+    const heroes = await prisma.hero.findMany({ include: { heroStats: true } })
+    if (heroes.length > 0) {
+      const enriched = heroes.map(h => ({
+        id: h.id, name: h.localizedName, img: h.imageUrl || '',
         roles: JSON.parse(h.roles || '[]'),
         stats: {
-          carry: { picks: carry?.picks || 0, wins: carry?.wins || 0, wr: carry?.winRate || 0 },
-          mid: { picks: mid?.picks || 0, wins: mid?.wins || 0, wr: mid?.winRate || 0 },
-          offlane: { picks: offlane?.picks || 0, wins: offlane?.wins || 0, wr: offlane?.winRate || 0 },
-          support: { picks: support?.picks || 0, wins: support?.wins || 0, wr: support?.winRate || 0 },
+          carry: { picks: 0, wins: 0, wr: 0 },
+          mid: { picks: 0, wins: 0, wr: 0 },
+          offlane: { picks: 0, wins: 0, wr: 0 },
+          support: { picks: 0, wins: 0, wr: 0 },
         },
-        overall: {
-          picks: overall?.picks || 0,
-          wins: overall?.wins || 0,
-          wr: overall?.winRate || 0,
-          bans: overall?.bans || 0,
-        },
-      }
-    })
+        overall: { picks: 0, wins: 0, wr: 0, bans: 0 },
+      }))
+      return NextResponse.json({ heroes: enriched })
+    }
+  } catch {}
 
-    return NextResponse.json({ heroes: enriched })
-  } catch (e) {
-    return NextResponse.json({ heroes: [] })
-  }
+  // Fallback: static seed data
+  return NextResponse.json({ heroes: SEED_HEROES })
 }
+
+// Also export teams and tournaments via separate handlers if needed
+export { SEED_TEAMS, SEED_TOURNAMENTS }
