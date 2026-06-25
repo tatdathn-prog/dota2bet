@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { ensureDb } from '@/lib/db-init'
 
 const OPENDOTA_LIVE = 'https://api.opendota.com/api/live'
 
@@ -8,6 +9,7 @@ const timelineStore = new Map<string, Array<{time: number, radiantLead: number, 
 const MAX_SNAPSHOTS = 180
 
 export async function GET() {
+  await ensureDb()
   try {
     const res = await fetch(OPENDOTA_LIVE)
     if (!res.ok) return NextResponse.json({ matches: [] })

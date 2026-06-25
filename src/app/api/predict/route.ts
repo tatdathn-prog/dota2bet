@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { ensureDb } from '@/lib/db-init'
 import { predictMatch, type TeamMetrics, type HeroComfort } from '@/lib/stats/predictor'
 
 export async function GET() {
+  await ensureDb()
   try {
     // Get upcoming matches
     const upcomingMatches = await prisma.match.findMany({

@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { ensureDb } from '@/lib/db-init'
 
 export async function GET() {
+  await ensureDb()
   try {
     const combos = await prisma.comboStat.findMany({
       where: { matches: { gte: 1 } },
