@@ -1,46 +1,35 @@
 import { prisma } from '@/lib/prisma'
+import { createClient } from '@libsql/client'
 import { HEROES, TI2026_EUROPE_TEAMS, TI2026_NA_TEAMS } from '@/lib/seed-data'
 
 let seeded = false
 
-const SCHEMA_SQL = `
-CREATE TABLE IF NOT EXISTS Hero (id INTEGER PRIMARY KEY, name TEXT NOT NULL, localizedName TEXT NOT NULL, primaryAttr TEXT NOT NULL, attackType TEXT NOT NULL, roles TEXT DEFAULT '[]', imageUrl TEXT);
-CREATE TABLE IF NOT EXISTS Team (id INTEGER PRIMARY KEY, name TEXT NOT NULL, tag TEXT, region TEXT, logoUrl TEXT);
-CREATE TABLE IF NOT EXISTS Tournament (id INTEGER PRIMARY KEY, name TEXT NOT NULL, shortName TEXT NOT NULL, region TEXT NOT NULL, startDate TEXT NOT NULL, endDate TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS Match (id INTEGER PRIMARY KEY, tournamentId INTEGER NOT NULL REFERENCES Tournament(id), radiantTeamId INTEGER REFERENCES Team(id), direTeamId INTEGER REFERENCES Team(id), winner TEXT, radiantScore INTEGER, direScore INTEGER, duration INTEGER, startTime TEXT, endTime TEXT, status TEXT DEFAULT 'upcoming', stage TEXT, matchOrder INTEGER, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP);
-CREATE TABLE IF NOT EXISTS MatchPick (id INTEGER PRIMARY KEY AUTOINCREMENT, matchId INTEGER NOT NULL REFERENCES Match(id), heroId INTEGER NOT NULL REFERENCES Hero(id), side TEXT NOT NULL, isRadiant INTEGER NOT NULL, playerName TEXT);
-CREATE TABLE IF NOT EXISTS TeamMatch (id INTEGER PRIMARY KEY AUTOINCREMENT, matchId INTEGER NOT NULL REFERENCES Match(id), teamId INTEGER NOT NULL REFERENCES Team(id), side TEXT NOT NULL, isWin INTEGER NOT NULL);
-CREATE TABLE IF NOT EXISTS HeroStat (id INTEGER PRIMARY KEY AUTOINCREMENT, heroId INTEGER NOT NULL REFERENCES Hero(id), position TEXT DEFAULT '', matches INTEGER DEFAULT 0, wins INTEGER DEFAULT 0, winRate REAL DEFAULT 0, picks INTEGER DEFAULT 0, bans INTEGER DEFAULT 0, tournamentId INTEGER DEFAULT 0, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP);
-CREATE TABLE IF NOT EXISTS TeamStat (id INTEGER PRIMARY KEY AUTOINCREMENT, teamId INTEGER NOT NULL REFERENCES Team(id), matches INTEGER DEFAULT 0, wins INTEGER DEFAULT 0, losses INTEGER DEFAULT 0, winRate REAL DEFAULT 0, tournamentId INTEGER DEFAULT 0, recentForm TEXT, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP);
-CREATE TABLE IF NOT EXISTS ComboStat (id INTEGER PRIMARY KEY AUTOINCREMENT, hero1Id INTEGER NOT NULL, hero2Id INTEGER NOT NULL, matches INTEGER DEFAULT 0, wins INTEGER DEFAULT 0, winRate REAL DEFAULT 0, tournamentId INTEGER DEFAULT 0, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP);
-CREATE INDEX IF NOT EXISTS idx_Team_region ON Team(region);
-CREATE INDEX IF NOT EXISTS idx_Tournament_region ON Tournament(region);
-CREATE INDEX IF NOT EXISTS idx_Match_tournamentId ON Match(tournamentId);
-CREATE INDEX IF NOT EXISTS idx_Match_status ON Match(status);
-CREATE INDEX IF NOT EXISTS idx_MatchPick_matchId ON MatchPick(matchId);
-CREATE INDEX IF NOT EXISTS idx_MatchPick_heroId ON MatchPick(heroId);
-CREATE INDEX IF NOT EXISTS idx_TeamMatch_matchId ON TeamMatch(matchId);
-CREATE INDEX IF NOT EXISTS idx_TeamMatch_teamId ON TeamMatch(teamId);
-CREATE INDEX IF NOT EXISTS idx_HeroStat_heroId ON HeroStat(heroId);
-CREATE INDEX IF NOT EXISTS idx_HeroStat_winRate ON HeroStat(winRate);
-CREATE INDEX IF NOT EXISTS idx_TeamStat_teamId ON TeamStat(teamId);
-CREATE INDEX IF NOT EXISTS idx_ComboStat_winRate ON ComboStat(winRate);
-`
-
 export async function ensureDb() {
   if (seeded) return
   try {
-    // Create schema first
-    const statements = SCHEMA_SQL.split(';').map(s => s.trim()).filter(s => s)
-    for (const stmt of statements) {
-      await prisma.$executeRawUnsafe(stmt + ';')
-    }
-    console.log('📐 Schema created')
-
     const count = await prisma.hero.count()
     if (count > 0) { seeded = true; return }
-  } catch (e) {
-    console.error('Schema/check error:', e)
+  } catch {
+    // Table doesn't exist - create schema using raw libsql client
+    const dbPath = process.env.VERCEL ? '/tmp/dota2bet.db' : 'file:./prisma/dev.db'
+    const libsql = createClient({ url: `file:${dbPath}` })
+    
+    const statements = [
+      `CREATE TABLE IF NOT EXISTS Hero (id INTEGER PRIMARY KEY, name TEXT NOT NULL, localizedName TEXT NOT NULL, primaryAttr TEXT NOT NULL, attackType TEXT NOT NULL, roles TEXT DEFAULT '[]', imageUrl TEXT)`,
+      `CREATE TABLE IF NOT EXISTS Team (id INTEGER PRIMARY KEY, name TEXT NOT NULL, tag TEXT, region TEXT, logoUrl TEXT)`,
+      `CREATE TABLE IF NOT EXISTS Tournament (id INTEGER PRIMARY KEY, name TEXT NOT NULL, shortName TEXT NOT NULL, region TEXT NOT NULL, startDate TEXT NOT NULL, endDate TEXT NOT NULL)`,
+      `CREATE TABLE IF NOT EXISTS Match (id INTEGER PRIMARY KEY, tournamentId INTEGER NOT NULL REFERENCES Tournament(id), radiantTeamId INTEGER REFERENCES Team(id), direTeamId INTEGER REFERENCES Team(id), winner TEXT, radiantScore INTEGER, direScore INTEGER, duration INTEGER, startTime TEXT, endTime TEXT, status TEXT DEFAULT 'upcoming', stage TEXT, matchOrder INTEGER, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP)`,
+      `CREATE TABLE IF NOT EXISTS MatchPick (id INTEGER PRIMARY KEY AUTOINCREMENT, matchId INTEGER NOT NULL REFERENCES Match(id), heroId INTEGER NOT NULL REFERENCES Hero(id), side TEXT NOT NULL, isRadiant INTEGER NOT NULL, playerName TEXT)`,
+      `CREATE TABLE IF NOT EXISTS TeamMatch (id INTEGER PRIMARY KEY AUTOINCREMENT, matchId INTEGER NOT NULL REFERENCES Match(id), teamId INTEGER NOT NULL REFERENCES Team(id), side TEXT NOT NULL, isWin INTEGER NOT NULL)`,
+      `CREATE TABLE IF NOT EXISTS HeroStat (id INTEGER PRIMARY KEY AUTOINCREMENT, heroId INTEGER NOT NULL REFERENCES Hero(id), position TEXT DEFAULT '', matches INTEGER DEFAULT 0, wins INTEGER DEFAULT 0, winRate REAL DEFAULT 0, picks INTEGER DEFAULT 0, bans INTEGER DEFAULT 0, tournamentId INTEGER DEFAULT 0, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP)`,
+      `CREATE TABLE IF NOT EXISTS TeamStat (id INTEGER PRIMARY KEY AUTOINCREMENT, teamId INTEGER NOT NULL REFERENCES Team(id), matches INTEGER DEFAULT 0, wins INTEGER DEFAULT 0, losses INTEGER DEFAULT 0, winRate REAL DEFAULT 0, tournamentId INTEGER DEFAULT 0, recentForm TEXT, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP)`,
+      `CREATE TABLE IF NOT EXISTS ComboStat (id INTEGER PRIMARY KEY AUTOINCREMENT, hero1Id INTEGER NOT NULL, hero2Id INTEGER NOT NULL, matches INTEGER DEFAULT 0, wins INTEGER DEFAULT 0, winRate REAL DEFAULT 0, tournamentId INTEGER DEFAULT 0, updatedAt TEXT DEFAULT CURRENT_TIMESTAMP)`,
+    ]
+    
+    for (const stmt of statements) {
+      await libsql.execute(stmt)
+    }
+    console.log('📐 Schema created via libsql client')
   }
 
   console.log('🌱 Auto-seeding database...')
