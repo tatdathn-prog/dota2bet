@@ -209,7 +209,7 @@ async function main() {
   // Periodic check
   setInterval(async () => {
     const c = await checkLiveMatches()
-    if (c > 0) {
+    if (c && c > 0) {
       console.log(`[${new Date().toLocaleTimeString()}] Đã quét — ${c} trận TI`)
     }
   }, POLL_INTERVAL)
