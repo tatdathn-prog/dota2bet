@@ -241,7 +241,7 @@ export default function Dashboard() {
                       <Tooltip 
                         contentStyle={{background:'#0d0d18',border:'1px solid #333',borderRadius:8,fontSize:11}}
                         labelStyle={{color:'#999'}}
-                        formatter={(value: number) => [value > 0 ? `+${(value/1000).toFixed(1)}k Radiant` : `${(value/1000).toFixed(1)}k Dire`, 'Gold Lead']}
+                        formatter={(value) => [value && value > 0 ? `+${(value/1000).toFixed(1)}k Radiant` : `${((value ?? 0)/1000).toFixed(1)}k Dire`, 'Gold Lead']}
                       />
                       <ReferenceLine y={0} stroke="#333" strokeDasharray="4 4" />
                       <Area type="monotone" dataKey="goldLead" stroke="#888" fillOpacity={1} fill="url(#goldGreen)" />
