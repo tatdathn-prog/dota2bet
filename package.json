@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "postinstall": "prisma generate",
     "notify": "npx tsx scripts/notifier.ts",
     "seed": "npx tsx scripts/seed.ts"
   },
