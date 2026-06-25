@@ -1,0 +1,147 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Hero {
+  id             Int         @id
+  name           String
+  localizedName  String
+  primaryAttr   String
+  attackType    String
+  roles          String      @default("[]")
+  imageUrl       String?
+  heroStats      HeroStat[]
+  radiantPicks   MatchPick[] @relation("RadiantHero")
+  direPicks      MatchPick[] @relation("DireHero")
+}
+
+model Team {
+  id             Int         @id
+  name           String
+  tag            String?
+  region         String?
+  logoUrl        String?
+  matches        TeamMatch[]
+  teamStats      TeamStat[]
+  radiantMatches Match[]     @relation("RadiantTeam")
+  direMatches    Match[]     @relation("DireTeam")
+
+  @@index([region])
+}
+
+model Tournament {
+  id        Int      @id
+  name      String
+  shortName String
+  region    String
+  startDate DateTime
+  endDate   DateTime
+  matches   Match[]
+
+  @@index([region])
+}
+
+model Match {
+  id            Int          @id
+  tournamentId  Int
+  tournament    Tournament   @relation(fields: [tournamentId], references: [id])
+  radiantTeamId Int?
+  direTeamId    Int?
+  radiantTeam   Team?        @relation("RadiantTeam", fields: [radiantTeamId], references: [id])
+  direTeam      Team?        @relation("DireTeam", fields: [direTeamId], references: [id])
+  winner        String?
+  radiantScore  Int?
+  direScore     Int?
+  duration      Int?
+  startTime     DateTime?
+  endTime       DateTime?
+  status        String       @default("upcoming")
+  stage         String?
+  matchOrder    Int?
+  picks         MatchPick[]
+  teamMatches   TeamMatch[]
+  updatedAt     DateTime     @updatedAt
+
+  @@index([tournamentId])
+  @@index([status])
+}
+
+model MatchPick {
+  id         Int     @id @default(autoincrement())
+  matchId    Int
+  match      Match   @relation(fields: [matchId], references: [id])
+  heroId     Int
+  radiantHero Hero?  @relation("RadiantHero", fields: [heroId], references: [id])
+  direHero    Hero?  @relation("DireHero", fields: [heroId], references: [id])
+  side       String
+  isRadiant  Boolean
+  playerName String?
+
+  @@index([matchId])
+  @@index([heroId])
+}
+
+model TeamMatch {
+  id      Int     @id @default(autoincrement())
+  matchId Int
+  match   Match   @relation(fields: [matchId], references: [id])
+  teamId  Int
+  team    Team    @relation(fields: [teamId], references: [id])
+  side    String
+  isWin   Boolean
+
+  @@index([matchId])
+  @@index([teamId])
+}
+
+model HeroStat {
+  id           Int      @id @default(autoincrement())
+  heroId       Int
+  hero         Hero     @relation(fields: [heroId], references: [id])
+  position     String   @default("")
+  matches      Int      @default(0)
+  wins         Int      @default(0)
+  winRate      Float    @default(0)
+  picks        Int      @default(0)
+  bans         Int      @default(0)
+  tournamentId Int      @default(0)
+  updatedAt    DateTime @updatedAt
+
+  @@unique([heroId, position, tournamentId])
+  @@index([heroId])
+  @@index([winRate])
+}
+
+model TeamStat {
+  id           Int      @id @default(autoincrement())
+  teamId       Int
+  team         Team     @relation(fields: [teamId], references: [id])
+  matches      Int      @default(0)
+  wins         Int      @default(0)
+  losses       Int      @default(0)
+  winRate      Float    @default(0)
+  tournamentId Int      @default(0)
+  recentForm   String?
+  updatedAt    DateTime @updatedAt
+
+  @@unique([teamId, tournamentId])
+  @@index([teamId])
+}
+
+model ComboStat {
+  id           Int      @id @default(autoincrement())
+  hero1Id      Int
+  hero2Id      Int
+  matches      Int      @default(0)
+  wins         Int      @default(0)
+  winRate      Float    @default(0)
+  tournamentId Int      @default(0)
+  updatedAt    DateTime @updatedAt
+
+  @@unique([hero1Id, hero2Id, tournamentId])
+  @@index([winRate])
+}
